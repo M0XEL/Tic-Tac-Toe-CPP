@@ -1,17 +1,10 @@
 #include <iostream>
 #include <time.h>
 #include <vector>
-#include <Windows.h>
-#include <conio.h>
-
-struct Vec2
-{
-	int x, y;
-};
 
 namespace optionvalues
 {
-	bool is_endless_border{ true };
+	bool is_singleplayer{ true }; // else Multiplayer
 	unsigned short difficulty{ 3 };
 }
 
@@ -19,8 +12,8 @@ namespace highscore
 {
 	struct Item
 	{
-		char* player_name;
-		int player_score;
+		char player_name;
+		int player_turns;
 	};
 	std::vector<Item> list;
 }
@@ -31,8 +24,8 @@ void gotoHighscores()
 	std::cout << "___Highscores___" << std::endl << std::endl;
 
 	for (int i = 0; i < highscore::list.size(); i++)
-		std::cout << "Player '" << highscore::list[i].player_name << "', "
-		<< "Score:   " << highscore::list[i].player_score << std::endl;
+		std::cout << "Player " << highscore::list[i].player_name << ":   "
+		<< highscore::list[i].player_turns << " turns!" << std::endl;
 
 	std::cout << std::endl;
 	std::cout << "Press 'ENTER' to continue";
@@ -44,21 +37,20 @@ void gotoOptions()
 {
 	bool is_running{ true };
 	while (is_running) {
-		char* border = (optionvalues::is_endless_border) ? "Endless" : "Death  ";
+		char* mode = (optionvalues::is_singleplayer) ? "Singleplayer" : "Multiplayer ";
 
 		char* difficulty;
-		switch (optionvalues::difficulty)
-		{
-		case 1: difficulty = "Easy   "; break;
-		case 2: difficulty = "Medium "; break;
-		case 3: difficulty = "Hard   "; break;
-		default: difficulty = "       "; break;
+		switch (optionvalues::difficulty) {
+		case 1: difficulty = "Easy        "; break;
+		case 2: difficulty = "Medium      "; break;
+		case 3: difficulty = "Hard        "; break;
+		default: difficulty = "            "; break;
 		}
 
 		system("cls");
 		std::cout << "___Options___" << std::endl << std::endl;
-		std::cout << "Toggle Endless/Death Border [now: " << border << "]  (press '1')" << std::endl;
-		std::cout << "Toggle Difficulty           [now: " << difficulty << "]  (press '2')" << std::endl;
+		std::cout << "Toggle Single-/Multiplayer[now: " << mode << "]  (press '1')" << std::endl;
+		std::cout << "Toggle Difficulty         [now: " << difficulty << "]  (press '2')" << std::endl;;
 		std::cout << "---DONE---  (press '0')" << std::endl << std::endl;
 		std::cout << "Decision: ";
 
@@ -68,211 +60,178 @@ void gotoOptions()
 			std::cin.clear();
 			std::cin.ignore(80, '\n');
 		}
-
-		switch (input)
-		{
-		case 0: is_running = false; break;
-		case 1: optionvalues::is_endless_border = (optionvalues::is_endless_border) ? false : true; break;
-		case 2:
-			switch (optionvalues::difficulty)
-			{
+		if (input == 1)
+			optionvalues::is_singleplayer = (optionvalues::is_singleplayer) ? false : true;
+		if (input == 2)
+			switch (optionvalues::difficulty) {
 			case 1: optionvalues::difficulty = 2; break;
 			case 2: optionvalues::difficulty = 3; break;
 			case 3: optionvalues::difficulty = 1; break;
 			}
-			break;
-		}	
+		else if (input == 0)
+			is_running = false;
 	}
 }
 
-void drawField(char field[12][12],const int score)
+void drawField(const char field[], const int turn)
 {
 	system("cls");
-	std::cout << "___Score " << score << "___" << std::endl << std::endl;
+	std::cout << "___Turn " << turn <<"___" << std::endl << std::endl;
 
-	// Left/Right border
-	for (int i = 0; i < 12; i++) {
-		field[i][0] = '#';
-		field[i][11] = '#';
-	}
-	// Up/Down border
-	for (int j = 0; j < 12; j++) {
-		field[0][j] = '#';
-		field[11][j] = '#';
-	}
-
-	// Draw field
-	for (int i = 0; i < 12; i++) {
-		for (int j = 0; j < 12; j++)
-			std::cout << field[i][j];
+	for (int i = 0; i < 3; i++) { // rows
+		for (int j = 0; j < 3; j++) { // colomns
+			std::cout << " ";
+			std::cout << field[3*i + j];
+		}
 		std::cout << std::endl;
-	}	
+	}
+}
+
+bool checkInput(const int input, const char player, char field[])
+{
+	// only numbers
+	if (std::cin.fail()) {
+		std::cin.clear();
+		std::cin.ignore(80, '\n');
+		return false;
+	}
+
+	// only valide numbers
+	if (input < 1 || input > 9)
+		return false;
+
+	// free space for player
+	if (field[input - 1] == ' ')
+		field[input - 1] = player;
+	else return false;
+
+	return true;
+}
+
+bool checkForWin(const char field[], char player)
+{
+	// Win horizontally
+	if (field[0] == player && field[1] == player && field[2] == player) return true;
+	else if (field[3] == player && field[4] == player && field[5] == player) return true;
+	else if (field[6] == player && field[7] == player && field[8] == player) return true;
+
+	// Win vertically
+	else if (field[0] == player && field[3] == player && field[6] == player) return true;
+	else if (field[1] == player && field[4] == player && field[7] == player) return true;
+	else if (field[2] == player && field[5] == player && field[8] == player) return true;
+
+	// Win diagonally
+	else if (field[0] == player && field[4] == player && field[8] == player) return true;
+	else if (field[2] == player && field[4] == player && field[6] == player) return true;
+
+	else return false;
 }
 
 void startRound()
 {
 	srand(time(nullptr));
-	char input;
-	char field[12][12];
-	int score{ 0 };
-	Vec2 player_head{ 5, 5 };
-	Vec2 previous_player_head;
-	Vec2 player_tail_end;
-	Vec2 previous_player_tail;
-	Vec2 saved_player_tail;
-	Vec2 fruit{ rand() % 10 + 1, rand() % 10 + 1 };
-	Vec2 fruit2{ rand() % 10 + 1, rand() % 10 + 1 };
-	std::vector<Vec2> player_tail;
-	bool has_tail{ false };
+	char player{ 'X' };
+	int turn{ 0 };
+	int input;
+	unsigned short error;
 
-	enum Direction
-	{
-		INVALID,
-		UP,
-		LEFT,
-		DOWN,
-		RIGHT
-	} player_direction;
-	player_direction = INVALID;
+	char field[9];
+	for (int i = 0; i < 9; i++)
+		field[i] = ' ';
+	drawField(field, turn);
 
-	// clear field
-	for (int i = 0; i < 12; i++)
-		for (int j = 0; j < 12; j++)
-			field[i][j] = ' ';
-
-	field[player_head.y][player_head.x] = 'O';
-	field[fruit.y][fruit.x] = '+';
-	if (optionvalues::difficulty == 3)
-		field[fruit2.y][fruit2.x] = '-';
-
-	drawField(field, score);
-	
+	bool is_set{ false };
 	bool is_runnig{ true };
 	while (is_runnig) {
-		
+		turn++;
+
 		// Input
-		if (_kbhit()) {
-			switch (_getch())
-			{
-			case 'w': player_direction = UP; break;
-			case 'W': player_direction = UP; break;
+		if (optionvalues::is_singleplayer && turn % 2 == 0) {
+			is_set = false;
+			error = rand() % 4;
 
-			case 'a': player_direction = LEFT; break;
-			case 'A': player_direction = LEFT; break;
+			// Check for own Win (Easy: 0.75%, Medium: 0.75%, Hard)
+			if (!is_set)
+				if ((optionvalues::difficulty == 1 && error != 0) ||
+					 optionvalues::difficulty == 2 && error != 0 ||
+					 optionvalues::difficulty == 3)
 
-			case 's': player_direction = DOWN; break;
-			case 'S': player_direction = DOWN; break;
+					for (int i = 0; i < 9; i++)
+						if (checkInput(i + 1, 'O', field))
+							if (checkForWin(field, player))
+								is_set = true;
+							else
+								field[i] = ' ';
 
-			case 'd': player_direction = RIGHT; break;
-			case 'D': player_direction = RIGHT; break;
+
+			// Check for opponent Win (Medium: 0.75%, Hard)
+			if (!is_set)
+				if ((optionvalues::difficulty == 2 && error != 0) ||
+					 optionvalues::difficulty == 3)
+
+					for (int i = 0; i < 9; i++)
+						if (checkInput(i + 1, 'X', field))
+							if (checkForWin(field, player))
+								is_set = true;
+							else
+								field[i] = ' ';
+
+
+			// Try to set in middle (Medium: 0.75%, Hard)
+			if (!is_set)
+				if ((optionvalues::difficulty == 2 && error != 0) ||
+					 optionvalues::difficulty == 3)
+
+					if (checkInput(5, 'O', field))
+						is_set = true;
+					else
+						field[5] = ' ';
+
+
+			// Random (Easy, Medium, Hard)
+			if (!is_set) {
+				do {
+					input = rand() % 9 + 1;
+				} while (!checkInput(input, player, field));
+				is_set = true;
 			}
-		}
-
-		previous_player_head = player_head;
-		if (has_tail)
-			player_tail_end = player_tail[player_tail.size() - 1];
-		else 
-			player_tail_end = player_head;
-
-		switch (player_direction)
-		{
-		case UP: player_head.y--; break;
-		case LEFT: player_head.x--; break;
-		case DOWN: player_head.y++; break;
-		case RIGHT: player_head.x++; break;
-		}
-
-		for (int i = 0; i < 12; i++)
-			for (int j = 0; j < 12; j++)
-				field[i][j] = ' ';
-
-		// Eat fruit
-		if (player_head.x == fruit.x && player_head.y == fruit.y) {
-			player_tail.push_back(player_tail_end);
-			fruit.x = rand() % 10 + 1;
-			fruit.y = rand() % 10 + 1;
-			score++;
-		}
-		if (optionvalues::difficulty == 3)
-			if (player_head.x == fruit2.x && player_head.y == fruit2.y) {
-				fruit2.x = rand() % 10 + 1;
-				fruit2.y = rand() % 10 + 1;
-				if (score > 0) {
-					player_tail.pop_back();
-					score--;
-				}
-			}
-
-		// Game over
-		for (int i = 0; i < player_tail.size(); i++)
-			if (player_head.x == player_tail[i].x && player_head.y == player_tail[i].y) {
-				is_runnig = false;
-
-				highscore::Item item;
-				item.player_name = "BestSnakePlayer99";
-				item.player_score = score;
-				highscore::list.push_back(item);
-			}
-
-		// Border
-		if (optionvalues::is_endless_border) {
-			if (player_head.x < 1)
-				player_head.x = 10;
-
-			else if (player_head.x > 10)
-				player_head.x = 1;
-
-			else if (player_head.y < 1)
-				player_head.y = 10;
-
-			else if (player_head.y > 10)
-				player_head.y = 1;
 		}
 		else {
-			if (player_head.x < 1 || player_head.x > 11 ||
-				player_head.y < 1 || player_head.y > 11) {
-				is_runnig = false;
-
-				highscore::Item item;
-				item.player_name = "BestSnakePlayer99";
-				item.player_score = score;
-				highscore::list.push_back(item);
-			}
-		}
-		
-		// Move Tail
-		previous_player_tail = previous_player_head;
-		for (int i = 0; i < player_tail.size(); i++) {
-			saved_player_tail = player_tail[i];
-			player_tail[i] = previous_player_tail;
-			previous_player_tail = saved_player_tail;
+			do {
+				std::cout << std::endl;
+				std::cout << "Player " << player << ": Choose your next move (1 -> 9): ";
+				std::cin >> input;
+			} while (!checkInput(input, player, field));
 		}
 
-		// Fill Field
-		field[fruit.y][fruit.x] = '+';
-		if (optionvalues::difficulty == 3)
-			field[fruit2.y][fruit2.x] = '-';
+		// Draw
+		drawField(field, turn);
 
-		field[player_head.y][player_head.x] = '0';
-		for (int i = 0; i < player_tail.size(); i++)
-			field[player_tail[i].y][player_tail[i].x] = 'o';
-		
-		drawField(field, score);
+		// Win
+		if (checkForWin(field, player)) {
+			is_runnig = false;
 
-		switch (optionvalues::difficulty)
-		{
-		case 1: Sleep(250); break;
-		case 2: Sleep(150); break;
-		case 3: Sleep(100); break;
+			highscore::Item item;
+			item.player_name = player;
+			item.player_turns = turn;
+			highscore::list.push_back(item);
+
+			std::cout << std::endl;
+			std::cout << "Player " << player << " wins in " << turn << ". turn!" << std::endl;
 		}
+		// no Win
+		else if (turn > 8) {
+			is_runnig = false;
+			std::cout << std::endl;
+			std::cout << "Nobody wins!" << std::endl;
+		}
+		// next player
+		else player = (player == 'X') ? 'O' : 'X';
 	}
-
-	std::cout << std::endl;
 	std::cout << "Press 'ENTER' to continue";
 	std::cin.ignore(80, '\n');
 	std::cin.get();
 }
-
 
 int main()
 {
@@ -280,7 +239,7 @@ int main()
 	while (is_running) {
 		system("cls");
 
-		std::cout << "___This is a Snake Game!___" << std::endl << std::endl;
+		std::cout << "___This is a Tic-Tac-Toe Game!___" << std::endl << std::endl;
 		std::cout << " Start     (press 'S')" << std::endl;
 		std::cout << " Highscore (press 'H')" << std::endl;
 		std::cout << " Options   (press 'O')" << std::endl;
