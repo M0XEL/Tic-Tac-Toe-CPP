@@ -10,7 +10,6 @@
             "args": [
                 // Ask msbuild to generate full paths for file names.
                 "/property:GenerateFullPaths=true",
-                "/property:OutDir=../../Debug/Tic-Tac-Toe/",
                 "/t:build"
             ],
             "group": "build",
